@@ -1,8 +1,9 @@
-from flask import Flask, request, jsonify, render_template, url_for
+from flask import Flask, request, jsonify, render_template, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data/database.db'
+app.secret_key = "spd2021"
 db = SQLAlchemy(app)
 
 class Localizacao(db.Model):
@@ -27,15 +28,21 @@ class Boletins(db.Model):
     onde = db.Column(db.String)
     delito = db.Column(db.Integer)
 
-
 @app.route("/")
 def home():
     return render_template('formulario.html')
 
 @app.route("/ocorrencias", methods = ['GET'])
 def ocorrencias():
-    data = Localizacao.query.all()
-    return jsonify({'data' : data })
+    data = Boletins.query.with_entities(Boletins.onde)
+    
+    serializeData = {}
+
+    i = 0
+    for value in data:
+        serializeData["{0}".format(i)] = value[0]
+        i += 1 
+    return jsonify({'data' : serializeData })
 
 @app.route("/boletim", methods = ['POST'])
 def boletim():
@@ -60,4 +67,13 @@ def boletim():
     db.session.merge(Boletins(name=data['nome'], rg= data['rg'], sexo=data['sexo'], data=data['data'], descricao =  data['descricao'], quando = data['quando'], onde = data['onde'], delito = delito.delitoId))
     db.session.commit()
 
-    return jsonify({"data" : data})
+    return render_template('formulario.html')
+
+
+@app.route("/register_ocorrencia", methods = ['POST'])
+def register_ocorrencia():
+    data = request.get_json()
+    
+    db.session.merge(Boletins(name=data['name'], rg= data['rg'], sexo=data['sexo'], data=data['data'], descricao =  data['descricao'], quando = data['quando'], onde = data['onde'], delito = data['delito']))
+    db.session.commit()
+    return jsonify({'message': 'Ocorrência Salva com sucesso!'}), 201
